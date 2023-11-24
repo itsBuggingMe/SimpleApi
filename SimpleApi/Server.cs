@@ -81,10 +81,8 @@ namespace SimpleApi
                         context.Response.ContentType = "text/plain";
                         context.Response.ContentLength64 = responseBytes.Length;
 
-                        // Get the output stream and write the response
                         context.Response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
 
-                        // Close the output stream
                         context.Response.OutputStream.Close();
                     }
                     break;
