@@ -3,17 +3,30 @@ using System.Text;
 
 namespace SimpleApi
 {
+    /// <summary>
+    /// Server class. should be inherited
+    /// </summary>
     public abstract class Server : IDisposable
     {
         private readonly string Url;
         private readonly HttpListener _listener;
-
+        /// <summary>
+        /// The existing prefixes
+        /// </summary>
         public Prefix[] Prefixes => prefixes;
         private readonly Prefix[] prefixes;
 
         private readonly Action<string> output = Console.WriteLine;
 
-        public Server(Action<string>? consoleOutput = null)
+
+        private bool stop = false;
+
+        /// <summary>
+        /// Creates a server
+        /// </summary>
+        /// <param name="consoleOutput">Default is Console.WriteLine</param>
+        /// <param name="defaultHost">IP that is written into config file</param>
+        public Server(Action<string>? consoleOutput = null, string defaultHost = "http://localhost:8080/")
         {
             if(consoleOutput != null)
                 output = consoleOutput;
@@ -29,7 +42,7 @@ namespace SimpleApi
             string txtPath = $"{configFolderPath}\\config.txt";
             bool txtExists = File.Exists(txtPath);
             if (!txtExists)
-                File.WriteAllLines(txtPath, new string[] { "http://localhost:8080/" });
+                File.WriteAllLines(txtPath, new string[] { defaultHost });
 
             //GET CONFIG
             Url = File.ReadAllText(txtPath).TrimEnd();
@@ -50,20 +63,33 @@ namespace SimpleApi
             this.prefixes = thisPrefixes.ToArray();
         }
 
+        /// <summary>
+        /// Starts the server, and beings to listen on the specified contexts
+        /// </summary>
         public void Start()
         {
             _listener.Start();
             output($"Server Started on {Url}");
             while (true)
             {
+                if (stop)
+                    break;
                 HttpListenerContext context = _listener.GetContext();
                 HandleRequest(context);
             }
+            OnStop();
         }
 
-        public void Dispose() => ((IDisposable)_listener).Dispose();
+        /// <summary>
+        /// Disposes the object
+        /// </summary>
+        public void Dispose()
+        {
+            ((IDisposable)_listener).Dispose();
+            GC.SuppressFinalize(this);
+        }
 
-        protected void HandleRequest(HttpListenerContext context)
+        private void HandleRequest(HttpListenerContext context)
         {
             if (context.Request.Url == null)
                 return;
@@ -99,6 +125,24 @@ namespace SimpleApi
             }
         }
 
+        /// <summary>
+        /// Server stops before next request
+        /// </summary>
+        public void Stop()
+        {
+            stop = true;
+        }
+
+        /// <summary>
+        /// Called when server is constructed. 
+        /// </summary>
+        /// <param name="prefixes">Empty List of prefixes</param>
+        /// <returns>Behavior of all possible prefixes</returns>
         protected abstract IEnumerable<(string, Func<string, string>)> GetPrefixes(List<(string, Func<string, string>)> prefixes);
+
+        /// <summary>
+        /// Empty method that is called when the server stops
+        /// </summary>
+        protected virtual void OnStop() { }
     }
 }
