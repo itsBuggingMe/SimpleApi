@@ -1,4 +1,6 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 namespace SimpleApi
@@ -41,6 +43,11 @@ namespace SimpleApi
 
             string txtPath = $"{configFolderPath}\\config.txt";
             bool txtExists = File.Exists(txtPath);
+
+#if DEBUG
+            txtExists = false;
+#endif
+
             if (!txtExists)
                 File.WriteAllLines(txtPath, new string[] { defaultHost });
 
@@ -57,7 +64,7 @@ namespace SimpleApi
                 var po = new Prefix($"{Url}{prefix.Item1}", prefix.Item2);
                 thisPrefixes.Add(po);
                 _listener.Prefixes.Add(po.PrefixString);
-                output($"Listening on prefix {po.PrefixString}");
+                output($"Added on prefix {po.PrefixString}");
             }
 
             this.prefixes = thisPrefixes.ToArray();
@@ -68,7 +75,15 @@ namespace SimpleApi
         /// </summary>
         public void Start()
         {
-            _listener.Start();
+            try
+            {
+                _listener.Start();
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
             output($"Server Started on {Url}");
             while (true)
             {
@@ -144,5 +159,22 @@ namespace SimpleApi
         /// Empty method that is called when the server stops
         /// </summary>
         protected virtual void OnStop() { }
+
+        /// <summary>
+        /// Gets the local IP adress. Helper function. From: https://stackoverflow.com/a/7141830
+        /// </summary>
+        protected static IPAddress? LocalIPAddress()
+        {
+            if (!System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+            {
+                return null;
+            }
+
+            IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+
+            return host
+                .AddressList
+                .FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork);
+        }
     }
 }
