@@ -1,10 +1,7 @@
 ﻿using SimpleApi;
 using Newtonsoft.Json;
 using System.Security.Cryptography;
-using System.Runtime.Intrinsics.Arm;
-using static System.Formats.Asn1.AsnWriter;
 using System.Text;
-using System.Xml.Linq;
 
 namespace HighScoreServer;
 
@@ -46,16 +43,38 @@ internal record class HighScoreInstance(DateTime Time, string Name, int Score, s
 
 internal class HighScoresData : Loadable
 {
-    public readonly List<HighScoreInstance> AllScores = new();
+    //dont forget to change when its leap year!!!!
+    private static readonly int daysInAYear = 365;
+    private static readonly int daysInAMonth = 30;
+
+    public readonly List<HighScoreInstance> all_time = new();
+    public readonly List<HighScoreInstance> past_30days = new();
+    public readonly List<HighScoreInstance> past_year = new();
 
     protected override void Initalise(params object[] objects) 
     {
+        List<HighScoreInstance> All = new();
+        All.AddRange(all_time);
+        All.AddRange(past_30days);
+        All.AddRange(past_year);
 
+        all_time.Clear();
+        past_30days.Clear();
+        past_year.Clear();
+
+        foreach(var instance in All)
+            AddInstance(instance);
     }
 
     public void AddInstance(HighScoreInstance instance)
     {
-        AllScores.Add(instance);
+        if ((DateTime.Now - instance.Time).TotalDays < daysInAMonth)
+            past_30days.Add(instance);
+
+        if ((DateTime.Now - instance.Time).TotalDays < daysInAYear)
+            past_year.Add(instance);
+
+        all_time.Add(instance);
     }
 }
 
@@ -125,5 +144,5 @@ internal abstract class Loadable
 
 internal static class Salt
 {
-    public static readonly string _Salt = "im not telling";
+    public static readonly string _Salt = "nonono";
 }
