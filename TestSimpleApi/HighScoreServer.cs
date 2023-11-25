@@ -1,15 +1,17 @@
 ﻿using SimpleApi;
 using Newtonsoft.Json;
-using System.Reflection;
-using System.Security.AccessControl;
-using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Runtime.Intrinsics.Arm;
+using static System.Formats.Asn1.AsnWriter;
+using System.Text;
+using System.Xml.Linq;
 
 namespace HighScoreServer;
 
 internal class HighScoreServer : Server
 {
     private readonly HighScoresData highScoresData;
-    public HighScoreServer() : base(defaultHost: $"http://{LocalIPAddress()}:8080/highScores/")
+    public HighScoreServer() : base(defaultHost: $"http://{LocalIPAddress()}:8415/highScores/")
     {
         if (!Loadable.LoadLoadable(out highScoresData))
             highScoresData = new();
@@ -25,9 +27,9 @@ internal class HighScoreServer : Server
     private string UploadHighScore(string inputRequest)
     {
         HighScoreInstance? scoreInstance = JsonConvert.DeserializeObject<HighScoreInstance>(inputRequest);
-        if(scoreInstance != null)
+        if (scoreInstance != null && scoreInstance.Hash == BitConverter.ToString(SHA256.HashData(Encoding.UTF8.GetBytes(scoreInstance.Name + scoreInstance.Score + Salt._Salt))).Replace("-", ""))
         {
-            highScoresData.AddInstance(scoreInstance);
+            highScoresData.AddInstance(scoreInstance with { Hash = "none" });
             Loadable.WriteObject(highScoresData);
         }
 
@@ -40,7 +42,7 @@ internal class HighScoreServer : Server
     }
 }
 
-internal record class HighScoreInstance(DateTime Time, string Name, int Score);
+internal record class HighScoreInstance(DateTime Time, string Name, int Score, string Hash);
 
 internal class HighScoresData : Loadable
 {
@@ -74,7 +76,7 @@ internal abstract class Loadable
         if (!File.Exists(dataJsonPath))
             File.WriteAllText(dataJsonPath, JsonConvert.SerializeObject(new T()));
 
-        var loadedObject = (T?)JsonConvert.DeserializeObject(File.ReadAllText(dataJsonPath));
+        var loadedObject = JsonConvert.DeserializeObject<T?>(File.ReadAllText(dataJsonPath));
         loadedObject?.Initalise(objects);
 
         if(loadedObject == null)
@@ -119,4 +121,9 @@ internal abstract class Loadable
     }
 
     protected abstract void Initalise(params object[] objects);
+}
+
+internal static class Salt
+{
+    public static readonly string _Salt = "im not telling";
 }
